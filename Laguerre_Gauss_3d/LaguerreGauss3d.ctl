@@ -30,7 +30,7 @@
 (define-param ref_medium 0)                 ; reference medium whose wavenumber is used as inverse scaling length
                                             ; (0 - free space, 1 - incident medium, 2 - refracted medium)
                                             ; k is then equivalent to k_ref_medium: k_1 = k_0*n_1 or k_2 = k_0*n_2
-(define-param n1  1.54)                     ; index of refraction of the incident medium
+(define-param n1  1.00)                     ; index of refraction of the incident medium
 (define-param n2  1.00)                     ; index of refraction of the refracted medium
 (define-param kw_0   8)                     ; beam width (>5 is good)
 (define-param kr_w   0)                     ; beam waist distance to interface (30 to 50 is good if
@@ -45,8 +45,8 @@
 (define Brewster                            ; calculates the Brewster angle in degrees
         (* (/ (atan (/ n2 n1)) (* 2.0 pi)) 360.0))
 
-(define-param chi_deg  (* 0.99 Critical))   ; define incidence angle relative to the Brewster or critical angle,
-;(define-param chi_deg  45.0)               ; or set it explicitly (in degrees)
+;(define-param chi_deg  (* 0.99 Critical))   ; define incidence angle relative to the Brewster or critical angle,
+(define-param chi_deg  45.0)               ; or set it explicitly (in degrees)
 
 ;;------------------------------------------------------------------------------------------------ 
 ;; specific Meep paramters (may need to be adjusted - either here or via command line)
@@ -54,16 +54,16 @@
 (define-param sx 5)                         ; size of cell including PML in x-direction
 (define-param sy 5)                         ; size of cell including PML in y-direction
 (define-param sz 5)                         ; size of cell including PML in z-direction
-(define-param pml_thickness 0.25)           ; thickness of PML layer
+(define-param pml_thickness 0.5)           ; thickness of PML layer
 (define-param freq     4)                   ; vacuum frequency of source (default 4)
 (define-param runtime 10)                   ; runs simulation for 10 times freq periods
 (define-param pixel   10)                   ; number of pixels per wavelength in the denser
                                             ; medium (at least >10; 20 to 30 is a good choice)
-(define-param source_shift -2.15)           ; source position with respect to the center (point of impact) in Meep
+(define-param source_shift -1.5)           ; source position with respect to the center (point of impact) in Meep
 ;(define-param source_shift (* -1.0 r_w))   ; units (-2.15 good); if equal -r_w, then source position coincides with
                                             ; waist position
 (define-param relerr 0.0001)                ; relative error for integration routine (0.0001 or smaller)
-(define-param maxeval 10000)                ; maximum evaluations for integration routine
+(define-param maxeval 1000)                ; maximum evaluations for integration routine
 
 ;;------------------------------------------------------------------------------------------------
 ;; derived Meep parameters (do not change)
@@ -140,7 +140,7 @@
 ;;------------------------------------------------------------------------------------------------
 (define (integrand f x y z k)
         (lambda (k_y k_z) (* (f k_y k_z)
-                             (exp (* 0+1i x (sqrt (- (* k k) (* k_y k_y)))))
+                             (exp (* 0+1i x (sqrt (- (* k k) (* k_y k_y) (* k_z k_z)))))
                              (exp (* 0+1i y k_y))
                              (exp (* 0+1i z k_z)))
         ))
@@ -177,14 +177,14 @@
 ;;------------------------------------------------------------------------------------------------
 (use-output-directory)                      ; put output files in a separate folder
 (set! force-complex-fields? false)          ; default: false
-(set! eps-averaging? true)                  ; default: true
+(set! eps-averaging? false)                  ; default: true
 
 (set! sources (list
                   (make source
                       (src (make continuous-src (frequency freq) (width 0.5)))
                       (if s-pol? (component Ez) (component Hz))
-                      (amplitude 3.0)
-                      (size 0 2 2)
+                      (amplitude 1.0)
+                      (size 0 3 3)
                       (center source_shift 0 0)
                       ;(amp-func (Gauss w_0)))
                       (amp-func (psi (f_Gauss w_0) shift (* n1 k_vac))))

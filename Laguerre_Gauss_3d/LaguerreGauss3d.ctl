@@ -54,7 +54,7 @@
 (define-param sx 5)                         ; size of cell including PML in x-direction
 (define-param sy 5)                         ; size of cell including PML in y-direction
 (define-param sz 5)                         ; size of cell including PML in z-direction
-(define-param pml_thickness 0.5)           ; thickness of PML layer
+(define-param pml_thickness 0.25)           ; thickness of PML layer
 (define-param freq     4)                   ; vacuum frequency of source (default 4)
 (define-param runtime 10)                   ; runs simulation for 10 times freq periods
 (define-param pixel   10)                   ; number of pixels per wavelength in the denser
@@ -63,7 +63,7 @@
 ;(define-param source_shift (* -1.0 r_w))   ; units (-2.15 good); if equal -r_w, then source position coincides with
                                             ; waist position
 (define-param relerr 0.0001)                ; relative error for integration routine (0.0001 or smaller)
-(define-param maxeval 1000)                ; maximum evaluations for integration routine
+(define-param maxeval 100000)                ; maximum evaluations for integration routine
 
 ;;------------------------------------------------------------------------------------------------
 ;; derived Meep parameters (do not change)
@@ -126,7 +126,7 @@
 ;; spectrum amplitude distribution(s)
 ;;------------------------------------------------------------------------------------------------
 (define (f_Gauss W_y)
-        (lambda (k_y k_z) (* (/ W_y (sqrt (* 2 pi))) 
+        (lambda (k_y k_z) (* 1.0; (/ W_y (sqrt (* 2 pi))) 
                              (exp (* -1 (* (* W_y W_y) (/ (+ (* k_y k_y) (* k_z k_z)) 4)))))
         ))
 
@@ -140,7 +140,16 @@
 ;;------------------------------------------------------------------------------------------------
 (define (integrand f x y z k)
         (lambda (k_y k_z) (* (f k_y k_z)
-                             (exp (* 0+1i x (sqrt (- (* k k) (* k_y k_y) (* k_z k_z)))))
+                             (exp (* 0+1i x (real-part (sqrt (- (* k k) (* k_y k_y) (* k_z k_z))))))
+                             ;(exp (* 0+1i x            (sqrt (- (* k k) (* k_y k_y) (* k_z k_z)))))
+                             (exp (* 0+1i y k_y))
+                             (exp (* 0+1i z k_z)))
+        ))
+
+(define (integrand_ f x y z k)
+        (lambda (k_y k_z) (* (f k_y k_z)
+                             ;(exp (* 0+1i x (real-part (sqrt (- (* k k) (* k_y k_y) (* k_z k_z))))))
+                             (exp (* 0+1i x            (sqrt (- (* k k) (* k_y k_y) (* k_z k_z)))))
                              (exp (* 0+1i y k_y))
                              (exp (* 0+1i z k_z)))
         ))
@@ -150,12 +159,28 @@
 ;; (one may have to adjust the 'relerr' and 'maxeval' parameter values in the integrate function)
 (define (psi f x k)
         (lambda (r) (car (integrate (integrand f x (vector3-y r) (vector3-z r) k)
-                         (list (* -1.0 k) (* -1.0 k)) (list (* 1.0 k) (* 1.0 k)) relerr 0 maxeval))
+                                    (list (* -1.0 k) (* -1.0 k)) (list (* 1.0 k) (* 1.0 k)) relerr 0 maxeval))
         ))
 
-;(print "Gauss 2d beam profile: " ((psi (f_Gauss w_0) 0.0 (* n1 k_vac)) (vector3 0 0.0 0.0)) "\n")
-;(print "Gauss 2d beam profile: " ((Gauss w_0)                          (vector3 0 0.0 0.0)) "\n")
-;(exit)
+
+(define (PSI f x k)
+        (lambda (r) (car (integrate 
+                         (lambda (k_y) (car (integrate 
+                                            (lambda (k_z) ((integrand_ f x (vector3-y r) (vector3-z r) k) k_y k_z))
+                                            (* -1 (sqrt (- (* k k) (* k_y k_y)))) (sqrt (- (* k k) (* k_y k_y))) 
+                                            relerr 0 maxeval)))
+                         (* -1.0 k) (* 1.0 k) 
+                         relerr 0 maxeval))
+        ))
+
+
+
+(print "Gauss spectrum amplitude: " ((f_Gauss w_0) 20 0) "\n")
+(print "integrand function:       " ((integrand (f_Gauss w_0) 0.2 0.3 0 (* n1 k_vac)) 4 0) "\n")
+(print "Gauss 2d beam profile:    " ((psi (f_Gauss w_0) -2.0 (* n1 k_vac)) (vector3 0 0 0)) "\n")
+(print "Gauss 2d beam profile:    " ((PSI (f_Gauss w_0) -2.0 (* n1 k_vac)) (vector3 0 0 0)) "\n")
+(print "w_0: " w_0 "\n")
+(exit)
 ;;------------------------------------------------------------------------------------------------
 ;; display values of physical variables
 ;;------------------------------------------------------------------------------------------------

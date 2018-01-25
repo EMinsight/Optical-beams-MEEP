@@ -31,10 +31,10 @@
 (define-param ref_medium 0)                 ; reference medium whose wavenumber is used as inverse scaling length
                                             ; (0 - free space, 1 - incident medium, 2 - refracted medium)
                                             ; k is then equivalent to k_ref_medium: k_1 = k_0*n_1 or k_2 = k_0*n_2
-(define-param n1  1.54)                     ; index of refraction of the incident medium
+(define-param n1  1.00)                     ; index of refraction of the incident medium
 (define-param n2  1.00)                     ; index of refraction of the refracted medium
 (define-param kw_0   8)                     ; beam width (>5 is good)
-(define-param kr_w  60)                     ; beam waist distance to interface (30 to 50 is good if
+(define-param kr_w   0)                     ; beam waist distance to interface (30 to 50 is good if
                                             ; source position coincides with beam waist)
 (define-param kr_c 150)                     ; radius of curvature (if interface is either concave of convex)
 
@@ -47,8 +47,8 @@
 (define Brewster                            ; calculates the Brewster angle in degrees
         (* (/ (atan (/ n2 n1)) (* 2.0 pi)) 360.0))
 
-(define-param chi_deg  (* 0.99 Critical))   ; define incidence angle relative to the Brewster or critical angle,
-;(define-param chi_deg  45.0)               ; or set it explicitly (in degrees)
+;(define-param chi_deg  (* 0.99 Critical))   ; define incidence angle relative to the Brewster or critical angle,
+(define-param chi_deg  45.0)               ; or set it explicitly (in degrees)
 
 ;;------------------------------------------------------------------------------------------------ 
 ;; specific Meep paramters (may need to be adjusted - either here or via command line)
@@ -56,7 +56,7 @@
 (define-param sx 5)                         ; size of cell including PML in x-direction
 (define-param sy 5)                         ; size of cell including PML in y-direction
 (define-param pml_thickness 0.25)           ; thickness of PML layer
-(define-param freq    12)                   ; vacuum frequency of source (5 to 12 is good)
+(define-param freq    4)                   ; vacuum frequency of source (5 to 12 is good)
 (define-param runtime 10)                   ; runs simulation for 10 times freq periods
 (define-param pixel   10)                   ; number of pixels per wavelength in the denser
                                             ; medium (at least >10; 20 to 30 is a good choice)
@@ -147,7 +147,7 @@
 ;; spectrum amplitude distribution(s)
 ;;------------------------------------------------------------------------------------------------
 (define (f_Gauss W_y)
-        (lambda (k_y) (* (/ W_y (* 2.0 (sqrt pi)))
+        (lambda (k_y) (* 1.0 ;(/ W_y (* 2.0 (sqrt pi)))
                          (exp (* -1.0 (expt (* 0.5 k_y W_y) 2.0))))
         ))
 
@@ -159,19 +159,24 @@
 ;; plane wave decomposition 
 ;; (purpose: calculate field amplitude at light source position if not coinciding with beam waist)
 ;;------------------------------------------------------------------------------------------------
-(define (integrand f y x k)
+(define (integrand f x y k)
         (lambda (k_y) (* (f k_y)
                         (exp (* 0+1i x (sqrt (- (* k k) (* k_y k_y)))))
-                        (exp (* 0+1i k_y y)))
+                        (exp (* 0+1i y k_y)))
         ))
 
 ;; complex field amplitude at position (x, y) with spectrum amplitude distribution f
 ;; (one may have to adjust the 'relerr' parameter value in the integrate function)
 (define (psi f x k)
-        (lambda (r) (car (integrate (integrand f (vector3-y r) x k)
+        (lambda (r) (car (integrate (integrand f x (vector3-y r) k)
                           (* -1.0 k) (* 1.0 k) relerr))
         ))
 
+(print "Gauss spectrum amplitude: " ((f_Gauss w_0) 20) "\n")
+(print "integrand function:       " ((integrand (f_Gauss w_0) 0.2 0.3 (* n1 k_vac)) 4)   "\n")
+(print "Gauss 2d beam profile:    " ((psi (f_Gauss w_0) 0.0 (* n1 k_vac)) (vector3 0 0)) "\n")
+(print "w_0: " w_0 "\n")
+(exit)
 ;;------------------------------------------------------------------------------------------------
 ;; display values of physical variables
 ;;------------------------------------------------------------------------------------------------
